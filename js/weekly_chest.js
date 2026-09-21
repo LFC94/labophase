@@ -62,12 +62,41 @@ function wcWriteChestOverrides() {
   }
 }
 
+function wcDateTime(dateStr) {
+  if (!dateStr || dateStr === "no_rotation") return null;
+  const ms = wcParseDate(dateStr).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function wcPickMostRecent(baseVal, localVal) {
+  const baseMs = wcDateTime(baseVal);
+  const localMs = wcDateTime(localVal);
+  if (baseMs === null && localMs === null) {
+    return localVal || baseVal || "no_rotation";
+  }
+  if (baseMs === null) return localVal;
+  if (localMs === null) return baseVal;
+  return localMs >= baseMs ? localVal : baseVal;
+}
+
 function wcGetRotationData() {
   let base = {};
   if (typeof WC_ROTATION === "object" && WC_ROTATION) base = WC_ROTATION;
   const merged = {};
   for (const key in base) merged[key] = base[key];
-  for (const key in WC_OVERRIDES) merged[key] = WC_OVERRIDES[key];
+
+  // In edit mode the user is crafting the data, so the local value wins
+  // as typed. Outside edit mode the most recent date between the server
+  // default and the local override always wins, so stale overrides no
+  // longer shadow newer published data.
+  if (WC_EDITING) {
+    for (const key in WC_OVERRIDES) merged[key] = WC_OVERRIDES[key];
+    return merged;
+  }
+
+  for (const key in WC_OVERRIDES) {
+    merged[key] = wcPickMostRecent(base[key], WC_OVERRIDES[key]);
+  }
   return merged;
 }
 
