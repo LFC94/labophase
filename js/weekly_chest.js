@@ -1,118 +1,185 @@
 // ============================================================
 // Weekly Chest
+//
+// Data lives in data/weekly-chest.json (fetched at runtime, same
+// pattern as data/sentences.json) with shape:
+//   { "rotation": { "key": "DD/MM/YYYY" | "no_rotation", ... },
+//     "chestAssign": { "key": 1, ... } }
+// Local overrides (edited in-tab) are merged on top so dates can
+// be changed without touching logic. "Current/Next week" chests
+// are computed automatically from the rotation dates.
 // ============================================================
 
-const WC_ROTATION_DATA = {
-  ace: "no_rotation",
-  akainu: "no_rotation",
-  alvida: "no_rotation",
-  aokiji: "no_rotation",
-  apoo: "17/07",
-  arlong: "no_rotation",
-  baby_5: "31/07",
-  bartolomeo: "14/08",
-  bastille: "17/07",
-  bellamy: "17/07",
-  bepo: "no_rotation",
-  blueno: "31/07",
-  bonney: "28/08",
-  brook: "31/07",
-  "buchi_&_sham": "no_rotation",
-  buggy: "no_rotation",
-  burgess: "31/07",
-  cabaji: "no_rotation",
-  capone_bege: "24/07",
-  carrot: "28/08",
-  chew: "no_rotation",
-  chopper: "07/08",
-  crocodile: "17/07",
-  daddy: "no_rotation",
-  dalmatian: "07/08",
-  doflamingo: "no_rotation",
-  don_krieg: "no_rotation",
-  drake: "28/08",
-  enel: "no_rotation",
-  eric: "no_rotation",
-  franky: "28/08",
-  garp: "no_rotation",
-  gedatsu: "no_rotation",
-  gin: "no_rotation",
-  hancock: "no_rotation",
-  hatchan: "no_rotation",
-  hawkins: "21/08",
-  hina: "07/08",
-  ichiji: "03/07",
-  ivankov: "no_rotation",
-  jabra: "21/08",
-  jango: "no_rotation",
-  jinbe: "no_rotation",
-  kaku: "24/07",
-  kalifa: "08/05",
-  kid: "10/07",
-  killer: "14/08",
-  kizaru: "no_rotation",
-  koala: "24/07",
-  kuma: "no_rotation",
-  kuro: "no_rotation",
-  kuroobi: "no_rotation",
-  law: "14/08",
-  leo: "07/08",
-  lucci: "10/07",
-  luffy: "03/07",
-  magellan: "no_rotation",
-  marco: "14/08",
-  marguerite: "24/07",
-  mihawk: "no_rotation",
-  "miss_doublefinger_(zala)": "no_rotation",
-  miss_goldenweek: "no_rotation",
-  mohji: "no_rotation",
-  morgan: "no_rotation",
-  moria: "28/08",
-  "mr._1": "no_rotation",
-  "mr._2": "no_rotation",
-  "mr._3": "no_rotation",
-  "mr._4": "no_rotation",
-  "mr._5": "no_rotation",
-  nami: "24/07",
-  niji: "21/08",
-  ohm: "no_rotation",
-  pearl: "no_rotation",
-  perona: "24/07",
-  rayleigh: "no_rotation",
-  rebecca: "07/08",
-  reiju: "21/08",
-  robin: "21/08",
-  ryuma: "26/06",
-  sabo: "no_rotation",
-  sanji: "31/07",
-  satori: "no_rotation",
-  shanks: "no_rotation",
-  shura: "no_rotation",
-  smoker: "08/05",
-  tashigi: "no_rotation",
-  teach: "no_rotation",
-  urouge: "31/07",
-  usopp: "14/08",
-  uta: "21/08",
-  van_augur: "14/08",
-  vivi: "no_rotation",
-  wapol: "no_rotation",
-  yamato: "no_rotation",
-  yonji: "07/08",
-  zoro: "28/08"
-};
+const WC_DATA_FILE = "data/weekly-chest.json";
+const WC_OVERRIDES_KEY = "labophase.wc.overrides";
+const WC_CHEST_OVERRIDES_KEY = "labophase.wc.chests";
+let WC_OVERRIDES = {};
+let WC_CHEST_OVERRIDES = {};
+let WC_EDITING = false;
+let WC_ROTATION = {};
+let WC_CHEST_ASSIGN = {};
+let WC_DATA_LOADED = false;
 
-const WC_CURRENT_CHESTS = [
-  ["robin", "jabra", "niji"],
-  ["uta", "reiju", "hawkins"]
-];
+// ------------------------------------------------------------
+// Overrides (local edit mode)
+// ------------------------------------------------------------
 
-const WC_NEXT_CHESTS = [
-  ["moria", "franky", "bonney"],
-  ["carrot", "zoro", "drake"]
-];
+function wcReadOverrides() {
+  try {
+    const raw = window.localStorage ? localStorage.getItem(WC_OVERRIDES_KEY) : "";
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch (_err) {
+    return {};
+  }
+}
 
-const WC_CURRENT_SET = new Set(WC_CURRENT_CHESTS.flat());
+function wcWriteOverrides(overrides) {
+  try {
+    if (window.localStorage) localStorage.setItem(WC_OVERRIDES_KEY, JSON.stringify(overrides));
+  } catch (_err) {
+    // Ignore storage write failures.
+  }
+}
+
+function wcReadChestOverrides() {
+  try {
+    const raw = window.localStorage ? localStorage.getItem(WC_CHEST_OVERRIDES_KEY) : "";
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch (_err) {
+    return {};
+  }
+}
+
+function wcWriteChestOverrides() {
+  try {
+    if (window.localStorage) localStorage.setItem(WC_CHEST_OVERRIDES_KEY, JSON.stringify(WC_CHEST_OVERRIDES));
+  } catch (_err) {
+    // Ignore storage write failures.
+  }
+}
+
+function wcGetRotationData() {
+  let base = {};
+  if (typeof WC_ROTATION === "object" && WC_ROTATION) base = WC_ROTATION;
+  const merged = {};
+  for (const key in base) merged[key] = base[key];
+  for (const key in WC_OVERRIDES) merged[key] = WC_OVERRIDES[key];
+  return merged;
+}
+
+function wcSetOverride(key, dateStr) {
+  const base = (typeof WC_ROTATION === "object" && WC_ROTATION
+    && Object.prototype.hasOwnProperty.call(WC_ROTATION, key)) ? WC_ROTATION[key] : undefined;
+  if (base !== undefined && dateStr === base) {
+    delete WC_OVERRIDES[key];
+  } else {
+    WC_OVERRIDES[key] = dateStr;
+  }
+  wcWriteOverrides(WC_OVERRIDES);
+  wcRefreshAll();
+}
+
+function wcClearOverrides() {
+  WC_OVERRIDES = {};
+  WC_CHEST_OVERRIDES = {};
+  wcWriteOverrides(WC_OVERRIDES);
+  wcWriteChestOverrides();
+  wcRefreshAll();
+}
+
+function wcSetChestOverride(key, num) {
+  const base = (typeof WC_CHEST_ASSIGN === "object" && WC_CHEST_ASSIGN && WC_CHEST_ASSIGN[key] !== undefined)
+    ? parseInt(WC_CHEST_ASSIGN[key], 10)
+    : null;
+  const derived = WC_DERIVED_CHEST[key] || null;
+  const clean = (Number.isFinite(num) && num > 0) ? num : null;
+  if (clean !== null && (clean === base || clean === derived)) {
+    delete WC_CHEST_OVERRIDES[key];
+  } else if (clean !== null) {
+    WC_CHEST_OVERRIDES[key] = String(clean);
+  } else {
+    delete WC_CHEST_OVERRIDES[key];
+  }
+  wcWriteChestOverrides();
+  wcRefreshAll();
+}
+
+// ------------------------------------------------------------
+// Current / Next chest groups (auto-computed from dates)
+// ------------------------------------------------------------
+
+let WC_CURRENT_SET = new Set();
+
+// Derived chest number per character (chunk of a rotation group in data order)
+let WC_DERIVED_CHEST = {};
+
+const WC_CHARS_PER_CHEST = 3;
+
+function wcGetChest(key) {
+  if (WC_CHEST_OVERRIDES[key] !== undefined) {
+    const n = parseInt(WC_CHEST_OVERRIDES[key], 10);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  const base = (typeof WC_CHEST_ASSIGN === "object" && WC_CHEST_ASSIGN && WC_CHEST_ASSIGN[key] !== undefined)
+    ? parseInt(WC_CHEST_ASSIGN[key], 10)
+    : 0;
+  if (Number.isFinite(base) && base > 0) return base;
+  return WC_DERIVED_CHEST[key] || null;
+}
+
+function wcComputeChestSets() {
+  const data = wcGetRotationData();
+  const now = Date.now();
+  const groups = new Map();
+  for (const [key, dateStr] of Object.entries(data)) {
+    if (!dateStr || dateStr === "no_rotation") continue;
+    const ms = wcParseDate(dateStr).getTime();
+    if (!groups.has(ms)) groups.set(ms, []);
+    groups.get(ms).push(key);
+  }
+  const ordered = [...groups.entries()].sort((a, b) => a[0] - b[0]);
+
+  WC_DERIVED_CHEST = {};
+  for (const [, keys] of ordered) {
+    keys.forEach((key, i) => {
+      WC_DERIVED_CHEST[key] = Math.floor(i / WC_CHARS_PER_CHEST) + 1;
+    });
+  }
+
+  function toRows(keys) {
+    const byNum = new Map();
+    for (const key of keys) {
+      const num = wcGetChest(key);
+      if (num === null) continue;
+      if (!byNum.has(num)) byNum.set(num, []);
+      byNum.get(num).push(key);
+    }
+    return [...byNum.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([num, chars]) => ({ num, chars }));
+  }
+
+  let currentIdx = -1;
+  for (let i = 0; i < ordered.length; i++) {
+    if (ordered[i][0] <= now) currentIdx = i;
+  }
+
+  if (currentIdx === -1) {
+    const nextKeys = ordered.length ? ordered[0][1] : [];
+    return { current: [], next: toRows(nextKeys), currentKeys: [], nextKeys };
+  }
+  const currentKeys = ordered[currentIdx][1];
+  const nextKeys = currentIdx + 1 < ordered.length ? ordered[currentIdx + 1][1] : [];
+  return { current: toRows(currentKeys), next: toRows(nextKeys), currentKeys, nextKeys };
+}
+
+// ------------------------------------------------------------
+// Shared helpers
+// ------------------------------------------------------------
 
 const WC_CLASS_DEFS = [
   { key: "tank",    icon: "sprites/icons_classes/icon_tank.png",    labelKey: "charactersGroupTank" },
@@ -161,18 +228,27 @@ function wcParseDate(dateStr) {
   const parts = dateStr.split("/");
   const day = parseInt(parts[0], 10);
   const month = parseInt(parts[1], 10);
-  const now = new Date();
-  const d = new Date(now.getFullYear(), month - 1, day);
-  // If more than ~6 months in the future, it belongs to the previous year
-  if (d.getTime() - now.getTime() > 183 * 24 * 60 * 60 * 1000) {
-    d.setFullYear(now.getFullYear() - 1);
-  }
-  return d;
+  let year = parts.length >= 3 ? parseInt(parts[2], 10) : new Date().getFullYear();
+  return new Date(year, month - 1, day);
+}
+
+function wcToInputDate(dateStr) {
+  const parts = dateStr.split("/");
+  const day = parts[0].padStart(2, "0");
+  const month = parts[1].padStart(2, "0");
+  const year = parts[2] || new Date().getFullYear();
+  return `${year}-${month}-${day}`;
+}
+
+function wcFromInputDate(iso) {
+  const parts = iso.split("-");
+  if (parts.length !== 3) return "";
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
 function wcGetStatus(key, dateStr) {
   if (WC_CURRENT_SET.has(key)) return "current";
-  if (dateStr === "no_rotation") return "no_rotation";
+  if (!dateStr || dateStr === "no_rotation") return "no_rotation";
   const diffDays = (Date.now() - wcParseDate(dateStr).getTime()) / (1000 * 60 * 60 * 24);
   if (diffDays < 0) return "purple";  // Future date
   if (diffDays <= 30) return "yellow";
@@ -204,7 +280,11 @@ function wcMatchesSearch(key, spriteId, query) {
   return false;
 }
 
-function wcBuildChestChar(key, isNext) {
+// ------------------------------------------------------------
+// Rendering
+// ------------------------------------------------------------
+
+function wcBuildChestChar(key) {
   const spriteId = wcGetSpriteId(key);
   const displayName = wcGetDisplayName(spriteId);
   return (
@@ -222,51 +302,88 @@ function wcRenderChests() {
   const nextContainer = document.getElementById("wc-next-chests");
   if (!currentContainer || !nextContainer) return;
 
-  function buildRows(chests, isNext) {
-    return chests.map((row, i) => {
-      const chars = row.map((key) => wcBuildChestChar(key, isNext)).join("");
+  const { current: currentRows, next: nextRows } = wcComputeChestSets();
+
+  function buildRows(rows, emptyKey) {
+    if (!rows.length) {
+      return WC_DATA_LOADED
+        ? `<p class="wc-empty-note">${t(emptyKey)}</p>`
+        : `<p class="wc-empty-note">${t("wcLoading")}</p>`;
+    }
+    return rows.map((row) => {
+      const chars = row.chars.map((key) => wcBuildChestChar(key)).join("");
       return (
         `<div class="wc-chest-row">` +
-          `<span class="wc-chest-row-label">${t("wcChestLabel")} ${i + 1}</span>` +
+          `<span class="wc-chest-row-label">${t("wcChestLabel")} ${row.num}</span>` +
           `<div class="wc-chest-row-chars">${chars}</div>` +
         `</div>`
       );
     }).join("");
   }
 
-  currentContainer.innerHTML = buildRows(WC_CURRENT_CHESTS, false);
-  nextContainer.innerHTML = buildRows(WC_NEXT_CHESTS, true);
+  currentContainer.innerHTML = buildRows(currentRows, "wcNoCurrentChest");
+  nextContainer.innerHTML = buildRows(nextRows, "wcNoNextChest");
 }
 
 function wcBuildCard(key, dateStr) {
   const spriteId = wcGetSpriteId(key);
   const displayName = wcGetDisplayName(spriteId);
   const status = wcGetStatus(key, dateStr);
-  const dateLabel = dateStr === "no_rotation" ? "&mdash;" : dateStr;
+  const chest = wcGetChest(key);
+  const isOverridden = Object.prototype.hasOwnProperty.call(WC_OVERRIDES, key)
+    || Object.prototype.hasOwnProperty.call(WC_CHEST_OVERRIDES, key);
+  const dateLabel = (!dateStr || dateStr === "no_rotation") ? "&mdash;" : dateStr;
+
+  let editRow = "";
+  if (WC_EDITING) {
+    const isNoRotation = (dateStr === "no_rotation");
+    const inputDate = (!dateStr || isNoRotation) ? "" : wcToInputDate(dateStr);
+    const noRotChecked = isNoRotation ? " checked" : "";
+    editRow =
+      `<div class="wc-edit-cols">` +
+        `<div class="wc-edit-line wc-edit-line-bau">` +
+          `<input type="number" class="wc-edit-bau" data-wc-key="${key}" min="1" max="9" value="${chest !== null ? chest : ""}" aria-label="${t("wcChestLabel")}" title="${t("wcChestLabel")}" />` +
+          `<label class="wc-edit-norot" title="${t("wcNoRotationFlag")}">` +
+            `<input type="checkbox" class="wc-edit-norot-cb" data-wc-key="${key}"${noRotChecked} />` +
+            `<span>NR</span>` +
+          `</label>` +
+          (isOverridden
+            ? `<button type="button" class="wc-edit-revert" data-wc-key="${key}" title="${t("wcRevertDate")}" aria-label="${t("wcRevertDate")}">↺</button>`
+            : "") +
+        `</div>` +
+        (isNoRotation
+          ? ""
+          : `<div class="wc-edit-line wc-edit-line-date">` +
+              `<input type="date" class="wc-edit-date" data-wc-key="${key}" value="${inputDate}" aria-label="Date" />` +
+            `</div>`) +
+      `</div>`;
+  }
 
   return (
-    `<div class="wc-char-card wc-status-${status}" title="${displayName}">` +
+    `<div class="wc-char-card wc-status-${status}${isOverridden ? " wc-is-overridden" : ""}" title="${displayName}">` +
       `<div class="wc-char-sprite-wrap">` +
         `<img class="wc-char-sprite" src="sprites/characters/${spriteId}.png" alt="${displayName}" onerror="this.onerror=null;this.src='sprites/branding/logo_0.png';" />` +
         `<div class="wc-char-date wc-date-${status}">${dateLabel}</div>` +
       `</div>` +
       `<div class="wc-char-name">${displayName}</div>` +
+      editRow +
     `</div>`
   );
 }
 
-// Pre-computed per-character data built once at init; avoids repeated lookups inside sort
+// Pre-computed per-character data built once per refresh; avoids repeated lookups inside sort
 let WC_CHAR_CACHE = null;
 
 function wcBuildCharCache() {
   if (!WC_SPRITE_CLASS) wcBuildSpriteClassMap();
   const now = Date.now();
-  WC_CHAR_CACHE = Object.entries(WC_ROTATION_DATA).map(([key, dateStr]) => {
+  WC_CHAR_CACHE = Object.entries(wcGetRotationData()).map(([key, dateStr]) => {
     const spriteId = wcGetSpriteId(key);
     const displayName = wcGetDisplayName(spriteId);
-    const sortDate = dateStr === "no_rotation"
+    const isCurrent = WC_CURRENT_SET.has(key);
+    const sortDate = (!dateStr || dateStr === "no_rotation")
       ? -Infinity
-      : (WC_CURRENT_SET.has(key) ? now : wcParseDate(dateStr).getTime());
+      : (isCurrent ? now : wcParseDate(dateStr).getTime());
     const charClass = WC_SPRITE_CLASS[spriteId] || null;
     const cardHtml = wcBuildCard(key, dateStr);
     return { key, dateStr, spriteId, displayName, sortName: displayName.toLowerCase(), sortDate, charClass, cardHtml };
@@ -277,6 +394,10 @@ function wcRender() {
   const container = document.getElementById("wc-grid");
   if (!container) return;
   if (!WC_CHAR_CACHE) wcBuildCharCache();
+  if (!WC_DATA_LOADED) {
+    container.innerHTML = `<p class="wc-no-results">${t("wcLoading")}</p>`;
+    return;
+  }
 
   const query = (document.getElementById("wc-search-input") || {}).value || "";
   const hideNoRot = !!(document.getElementById("wc-hide-no-rotation") || {}).checked;
@@ -298,7 +419,7 @@ function wcRender() {
   let html = "";
   let count = 0;
   for (const entry of entries) {
-    if (hideNoRot && entry.dateStr === "no_rotation") continue;
+    if (hideNoRot && (!entry.dateStr || entry.dateStr === "no_rotation")) continue;
     if (activeClasses.size > 0 && !activeClasses.has(entry.charClass)) continue;
     if (!wcMatchesSearch(entry.key, entry.spriteId, query)) continue;
     html += entry.cardHtml;
@@ -308,6 +429,189 @@ function wcRender() {
   container.innerHTML = count === 0
     ? `<p class="wc-no-results">${t("wcNoResults")}</p>`
     : html;
+}
+
+function wcRefreshAll() {
+  const { currentKeys } = wcComputeChestSets();
+  WC_CURRENT_SET = new Set(currentKeys);
+  wcBuildCharCache();
+  wcRenderChests();
+  wcRender();
+  wcUpdateEditBar();
+}
+
+function wcUpdateEditBar() {
+  const bar = document.getElementById("wc-edit-bar");
+  if (bar) bar.classList.toggle("is-open", WC_EDITING);
+  const toggle = document.getElementById("wc-edit-toggle-btn");
+  if (toggle) toggle.classList.toggle("is-active", WC_EDITING);
+  const countEl = document.getElementById("wc-changes-count");
+  if (countEl) {
+    countEl.textContent = String(Object.keys(WC_OVERRIDES).length + Object.keys(WC_CHEST_OVERRIDES).length);
+  }
+}
+
+// ------------------------------------------------------------
+// Edit-mode actions
+// ------------------------------------------------------------
+
+function wcCopyCode() {
+  const rotated = wcGetRotationData();
+  if (typeof WC_DERIVED_CHEST !== "object" || !Object.keys(WC_DERIVED_CHEST).length) {
+    wcComputeChestSets();
+  }
+
+  // Full explicit chest map: override > WC_CHEST_ASSIGN > auto-derived.
+  const mergedChests = {};
+  for (const key in rotated) {
+    let n = null;
+    if (typeof WC_CHEST_OVERRIDES === "object" && WC_CHEST_OVERRIDES[key] !== undefined) {
+      n = parseInt(WC_CHEST_OVERRIDES[key], 10);
+    } else if (typeof WC_CHEST_ASSIGN === "object" && WC_CHEST_ASSIGN && WC_CHEST_ASSIGN[key] !== undefined) {
+      n = parseInt(WC_CHEST_ASSIGN[key], 10);
+    } else if (typeof WC_DERIVED_CHEST === "object" && WC_DERIVED_CHEST[key] !== undefined) {
+      n = parseInt(WC_DERIVED_CHEST[key], 10);
+    }
+    if (n !== null && Number.isFinite(n) && n > 0) mergedChests[key] = n;
+  }
+  const code = JSON.stringify({ rotation: rotated, chestAssign: mergedChests }, null, 2);
+
+  const done = () => showToast(t("wcCodeCopied"));
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(code).then(done).catch(() => {
+      const reply = prompt(t("wcCopyManual"), code);
+      if (reply !== null) done();
+    });
+  } else {
+    const reply = prompt(t("wcCopyManual"), code);
+    if (reply !== null) done();
+  }
+}
+
+function wcBindEditDelegates() {
+  const grid = document.getElementById("wc-grid");
+  if (!grid) return;
+
+  grid.addEventListener("change", (event) => {
+    const target = event.target;
+    if (target.classList && target.classList.contains("wc-edit-bau")) {
+      const key = target.getAttribute("data-wc-key");
+      if (!key) return;
+      const num = parseInt(target.value, 10);
+      wcSetChestOverride(key, Number.isFinite(num) ? num : null);
+      return;
+    }
+    if (target.classList && target.classList.contains("wc-edit-date")) {
+      const key = target.getAttribute("data-wc-key");
+      if (!key) return;
+      const iso = target.value;
+      const next = iso ? wcFromInputDate(iso) : "no_rotation";
+      wcSetOverride(key, next);
+      return;
+    }
+    if (target.classList && target.classList.contains("wc-edit-norot-cb")) {
+      const key = target.getAttribute("data-wc-key");
+      if (!key) return;
+      wcSetOverride(key, target.checked ? "no_rotation" : "");
+    }
+  });
+
+  grid.addEventListener("click", (event) => {
+    const target = event.target;
+    if (target.closest && target.closest(".wc-edit-revert")) {
+      const key = target.closest(".wc-edit-revert").getAttribute("data-wc-key");
+      if (!key) return;
+      delete WC_OVERRIDES[key];
+      delete WC_CHEST_OVERRIDES[key];
+      wcWriteOverrides(WC_OVERRIDES);
+      wcWriteChestOverrides();
+      wcRefreshAll();
+    }
+  });
+
+  const toggle = document.getElementById("wc-edit-toggle-btn");
+  if (toggle) {
+    toggle.addEventListener("click", () => {
+      WC_EDITING = !WC_EDITING;
+      wcRefreshAll();
+    });
+  }
+
+  const restore = document.getElementById("wc-edit-restore-btn");
+  if (restore) restore.addEventListener("click", wcClearOverrides);
+
+  const copy = document.getElementById("wc-edit-copy-btn");
+  if (copy) copy.addEventListener("click", wcCopyCode);
+}
+
+// ------------------------------------------------------------
+// Init
+// ------------------------------------------------------------
+
+function wcLoadData() {
+  function onLoaded(json) {
+    WC_ROTATION = (json && typeof json.rotation === "object" && json.rotation) ? json.rotation : {};
+    WC_CHEST_ASSIGN = (json && typeof json.chestAssign === "object" && json.chestAssign) ? json.chestAssign : {};
+    WC_DATA_LOADED = true;
+    wcRefreshAll();
+  }
+  function onError(err) {
+    WC_ROTATION = {};
+    WC_CHEST_ASSIGN = {};
+    WC_DATA_LOADED = true;
+    console.error("Weekly Chest: could not load " + WC_DATA_FILE + ":", err);
+    wcRefreshAll();
+  }
+  if (typeof fetch !== "function") {
+    onError(new Error("fetch unavailable"));
+    return Promise.resolve();
+  }
+  const promise = fetch(WC_DATA_FILE)
+    .then(function (resp) {
+      if (!resp.ok) throw new Error("HTTP " + resp.status + " loading " + WC_DATA_FILE);
+      return resp.json();
+    })
+    .then(onLoaded)
+    .catch(onError);
+  return promise;
+}
+
+let _weeklyChestInitDone = false;
+function weeklyChestInit() {
+  if (_weeklyChestInitDone) {
+    wcRefreshAll();
+    return;
+  }
+  _weeklyChestInitDone = true;
+
+  WC_OVERRIDES = wcReadOverrides();
+  WC_CHEST_OVERRIDES = wcReadChestOverrides();
+  wcLoadData();
+
+  const searchInput = document.getElementById("wc-search-input");
+  if (searchInput) {
+    searchInput.placeholder = t("wcSearchPlaceholder");
+    const debouncedWcRender = (typeof debounce === "function"
+      ? debounce(wcRender, 140)
+      : wcRender);
+    searchInput.addEventListener("input", debouncedWcRender);
+  }
+  const cb = document.getElementById("wc-hide-no-rotation");
+  if (cb) cb.addEventListener("change", wcRender);
+  const sortSel = document.getElementById("wc-sort-select");
+  if (sortSel) sortSel.addEventListener("change", () => requestAnimationFrame(wcRender));
+
+  wcBuildSpriteClassMap();
+  wcBuildFilterButtons();
+  wcBindEditDelegates();
+  wcRefreshAll();
+}
+
+function weeklyChestApplyTranslations() {
+  const searchInput = document.getElementById("wc-search-input");
+  if (searchInput) searchInput.placeholder = t("wcSearchPlaceholder");
+  wcBuildFilterButtons();
+  wcRefreshAll();
 }
 
 function wcBuildFilterButtons() {
@@ -325,39 +629,4 @@ function wcBuildFilterButtons() {
       requestAnimationFrame(wcRender);
     });
   });
-}
-
-let _weeklyChestInitDone = false;
-function weeklyChestInit() {
-  if (_weeklyChestInitDone) {
-    wcRender();
-    return;
-  }
-  _weeklyChestInitDone = true;
-
-  const searchInput = document.getElementById("wc-search-input");
-  if (searchInput) {
-    searchInput.placeholder = t("wcSearchPlaceholder");
-    const debouncedWcRender = (typeof debounce === "function"
-      ? debounce(wcRender, 140)
-      : wcRender);
-    searchInput.addEventListener("input", debouncedWcRender);
-  }
-  const cb = document.getElementById("wc-hide-no-rotation");
-  if (cb) cb.addEventListener("change", wcRender);
-  const sortSel = document.getElementById("wc-sort-select");
-  if (sortSel) sortSel.addEventListener("change", () => requestAnimationFrame(wcRender));
-  wcBuildSpriteClassMap();
-  wcBuildCharCache();
-  wcBuildFilterButtons();
-  wcRenderChests();
-  wcRender();
-}
-
-function weeklyChestApplyTranslations() {
-  const searchInput = document.getElementById("wc-search-input");
-  if (searchInput) searchInput.placeholder = t("wcSearchPlaceholder");
-  wcBuildFilterButtons();
-  wcRenderChests();
-  wcRender();
 }

@@ -359,6 +359,187 @@
   padding: 20px 0;
 }
 
+.wc-empty-note {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: italic;
+  text-align: center;
+  margin: 6px 0;
+}
+
+/* Edit mode */
+.wc-title-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.wc-title-block h3 {
+  margin: 0;
+}
+
+.wc-edit-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  border: 1px solid var(--border-accent);
+  border-radius: 6px;
+  background: var(--bg-surface-1);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.wc-edit-toggle:hover,
+.wc-edit-toggle.is-active {
+  border-color: var(--input-focus);
+  background: var(--bg-surface-2);
+}
+
+.wc-edit-bar {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  background: var(--bg-surface-1);
+  border: 1px dashed var(--input-focus);
+  border-radius: 8px;
+}
+
+.wc-edit-bar.is-open {
+  display: flex;
+}
+
+.wc-edit-count {
+  font-size: 12px;
+  color: var(--text-main);
+}
+
+.wc-edit-count strong {
+  color: var(--input-focus);
+}
+
+.wc-edit-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+  border: 1px solid var(--border-accent);
+  border-radius: 6px;
+  background: var(--bg-surface-2);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.wc-edit-btn:hover {
+  border-color: var(--input-focus);
+}
+
+.wc-edit-btn.is-primary {
+  background: var(--input-focus);
+  color: #120800;
+  border-color: transparent;
+  font-weight: 700;
+}
+
+.wc-edit-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.wc-edit-cols {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 135px;
+  margin-top: 2px;
+}
+
+.wc-edit-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 20px;
+}
+
+.wc-edit-line-date {
+  width: 100%;
+}
+
+.wc-edit-line-date .wc-edit-date {
+  width: 100%;
+}
+
+.wc-edit-bau {
+  width: 34px;
+  min-width: 34px;
+  font-size: 10px;
+  text-align: center;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  color: var(--input-text);
+  outline: none;
+}
+
+.wc-edit-date {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  font-size: 10px;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  color: var(--input-text);
+  outline: none;
+}
+
+.wc-edit-norot {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.wc-edit-norot input {
+  width: 12px;
+  height: 12px;
+  cursor: pointer;
+  accent-color: var(--input-focus);
+  margin: 0;
+}
+
+.wc-edit-revert {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  line-height: 1;
+  font-size: 12px;
+  border: 1px solid var(--border-accent);
+  border-radius: 4px;
+  background: var(--bg-surface-2);
+  color: var(--text-title);
+  cursor: pointer;
+  padding: 0;
+}
+
+.wc-char-card.wc-is-overridden .wc-char-name {
+  color: var(--input-focus);
+}
+
+.wc-char-card.wc-is-overridden .wc-char-sprite-wrap {
+  border-style: dashed;
+}
+
 @media (max-width: 640px) {
   .wc-panel {
     padding: 6px;

@@ -1543,8 +1543,17 @@
         <div id="weekly_chest" class="tabPanel" style="display: none">
           <div class="panel wc-panel">
             <div class="wc-header-row">
-              <h3 data-lang="wcTitle">Baú Semanal</h3>
+              <div class="wc-title-block">
+                <h3 data-lang="wcTitle">Baú Semanal</h3>
+                <button type="button" id="wc-edit-toggle-btn" class="wc-edit-toggle" title="Editar">✏️ <span data-lang="wcEdit">Editar</span></button>
+              </div>
               <span class="wc-credits" data-lang="wcCredits">Créditos a Atiosz pela ideia</span>
+            </div>
+            <div id="wc-edit-bar" class="wc-edit-bar">
+              <span class="wc-edit-count"><span data-lang="wcChanges">Alterações locais</span>: <strong id="wc-changes-count">0</strong></span>
+              <button type="button" id="wc-edit-restore-btn" class="wc-edit-btn" data-lang="wcRestore">Restaurar</button>
+              <button type="button" id="wc-edit-copy-btn" class="wc-edit-btn is-primary" data-lang="wcCopyCode">Copiar código</button>
+              <span class="wc-edit-hint" data-lang="wcEditHint"></span>
             </div>
             <div class="wc-legend">
               <span class="wc-legend-item">
