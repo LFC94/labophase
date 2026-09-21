@@ -191,6 +191,38 @@ function createDefaultCharacterState(character) {
   };
 }
 
+function characterHasMeaningfulData(character, state) {
+  if (state.level > 1) return true;
+  if (state.stars > 1) return true;
+  if (state.tier !== character.tierStart) return true;
+  const skinOptions = getCharacterSkinOptions(character);
+  for (let index = 1; index < skinOptions.length; index++) {
+    if (state.skinsUnlocked && state.skinsUnlocked[skinOptions[index].id]) return true;
+  }
+  if (typeof islandChestsHasCharacterData === "function"
+      && islandChestsHasCharacterData(character.id)) return true;
+  return false;
+}
+
+function blockAllCharactersWithoutData() {
+  let changed = 0;
+  CHARACTERS_DATA.forEach((character) => {
+    const state = getCharacterState(character.id, character);
+    if (!characterHasMeaningfulData(character, state)) {
+      if (state.active) changed++;
+      state.active = false;
+    }
+  });
+  if (changed > 0) {
+    autoSaveBuild();
+    notifyIslandChestsCharacterChange();
+    charactersRender();
+    if (typeof showToast === "function") {
+      showToast(t("charactersBlockEmptyDone").replace("{n}", String(changed)));
+    }
+  }
+}
+
 function bindCharactersEvents() {
   const search = document.getElementById("characters-search");
   const maxLevelFilter = document.getElementById("characters-max-level-filter");
@@ -216,6 +248,12 @@ function bindCharactersEvents() {
       notifyIslandChestsCharacterChange();
       charactersRender();
     });
+  }
+
+  const blockEmptyBtn = document.getElementById("characters-block-empty-btn");
+  if (blockEmptyBtn && !blockEmptyBtn.dataset.charactersBound) {
+    blockEmptyBtn.dataset.charactersBound = "1";
+    blockEmptyBtn.addEventListener("click", blockAllCharactersWithoutData);
   }
 
   if (!document.body.dataset.charactersFilterTogglesBound) {
