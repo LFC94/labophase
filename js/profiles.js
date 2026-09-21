@@ -16,6 +16,7 @@ function getAppState() {
     boats: typeof getBoatsState === 'function' ? getBoatsState() : null,
     islandChests: typeof getIslandChestsState === 'function' ? getIslandChestsState() : null,
     tracker: typeof getTrackerState === 'function' ? getTrackerState() : null,
+    weeklyChest: typeof weeklyChestGetState === 'function' ? weeklyChestGetState() : null,
   };
 }
 
@@ -25,7 +26,8 @@ function isCombinedAppState(state) {
       || Object.prototype.hasOwnProperty.call(state, 'characters')
       || Object.prototype.hasOwnProperty.call(state, 'boats')
       || Object.prototype.hasOwnProperty.call(state, 'islandChests')
-      || Object.prototype.hasOwnProperty.call(state, 'tracker'));
+      || Object.prototype.hasOwnProperty.call(state, 'tracker')
+      || Object.prototype.hasOwnProperty.call(state, 'weeklyChest'));
 }
 
 function applyAppState(state) {
@@ -34,6 +36,7 @@ function applyAppState(state) {
   const boatsState = isCombinedAppState(state) ? state.boats : null;
   const islandChestsState = isCombinedAppState(state) ? state.islandChests : null;
   const trackerState = isCombinedAppState(state) ? state.tracker : null;
+  const weeklyChestState = isCombinedAppState(state) ? state.weeklyChest : null;
 
   applyBuildState(buildState);
 
@@ -55,6 +58,11 @@ function applyAppState(state) {
   if (typeof applyTrackerState === 'function') {
     if (trackerState) applyTrackerState(trackerState);
     else resetTrackerState();
+  }
+
+  if (typeof weeklyChestState === 'object' && weeklyChestState !== null
+    && typeof applyWeeklyChestState === 'function') {
+    applyWeeklyChestState(weeklyChestState);
   }
 }
 

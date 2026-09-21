@@ -91,6 +91,39 @@ function wcClearOverrides() {
   wcRefreshAll();
 }
 
+// ------------------------------------------------------------
+// Profile integration (export/import junto com o perfil)
+// ------------------------------------------------------------
+
+function weeklyChestGetState() {
+  const hasDate = Object.keys(WC_OVERRIDES).length > 0;
+  const hasChest = Object.keys(WC_CHEST_OVERRIDES).length > 0;
+  if (!hasDate && !hasChest) return null;
+  return {
+    overrides: JSON.parse(JSON.stringify(WC_OVERRIDES)),
+    chestOverrides: JSON.parse(JSON.stringify(WC_CHEST_OVERRIDES))
+  };
+}
+
+function applyWeeklyChestState(state) {
+  if (!state || typeof state !== "object") return;
+  const overrides = (state.overrides && typeof state.overrides === "object" && !Array.isArray(state.overrides))
+    ? state.overrides : {};
+  const chestOverrides = (state.chestOverrides && typeof state.chestOverrides === "object" && !Array.isArray(state.chestOverrides))
+    ? state.chestOverrides : {};
+
+  WC_OVERRIDES = {};
+  WC_CHEST_OVERRIDES = {};
+  wcWriteOverrides(WC_OVERRIDES);
+  wcWriteChestOverrides();
+
+  for (const key in overrides) wcSetOverride(key, overrides[key]);
+  for (const key in chestOverrides) {
+    const n = parseInt(chestOverrides[key], 10);
+    wcSetChestOverride(key, Number.isFinite(n) ? n : null);
+  }
+}
+
 function wcSetChestOverride(key, num) {
   const base = (typeof WC_CHEST_ASSIGN === "object" && WC_CHEST_ASSIGN && WC_CHEST_ASSIGN[key] !== undefined)
     ? parseInt(WC_CHEST_ASSIGN[key], 10)
