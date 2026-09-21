@@ -34,6 +34,8 @@ function applyAppState(state) {
   const buildState = isCombinedAppState(state) ? state.build : state;
   const charactersState = isCombinedAppState(state) ? state.characters : null;
   const boatsState = isCombinedAppState(state) ? state.boats : null;
+  const hasIslandChestsKey = isCombinedAppState(state)
+    && Object.prototype.hasOwnProperty.call(state, 'islandChests');
   const islandChestsState = isCombinedAppState(state) ? state.islandChests : null;
   const trackerState = isCombinedAppState(state) ? state.tracker : null;
   const weeklyChestState = isCombinedAppState(state) ? state.weeklyChest : null;
@@ -52,7 +54,7 @@ function applyAppState(state) {
 
   if (typeof applyIslandChestsState === 'function') {
     if (islandChestsState) applyIslandChestsState(islandChestsState);
-    else applyIslandChestsState(null);
+    else if (hasIslandChestsKey) applyIslandChestsState(null);
   }
 
   if (typeof applyTrackerState === 'function') {

@@ -485,6 +485,9 @@ let icUnlockedCharactersCache = {
   signature: "",
   list: CHARACTERS_DATA
 };
+let icConfirmCallback = null;
+let icConfirmCharacterId = null;
+let icConfirmBound = false;
 
 function icBumpCompletionMemoVersion() {
   icCompletionMemoVersion += 1;
@@ -1749,6 +1752,66 @@ function islandChestsInit() {
 
   icBindUiControls();
   renderIslandChests();
+}
+
+// ---- Block confirmation modal ----
+function islandChestsHasCharacterData(charId) {
+  if (!charId) return false;
+  if (!icInitialized) icLoadState();
+  icEnsureStateShape();
+  const charState = icState.checked[charId];
+  if (!charState || typeof charState !== "object") return false;
+  return Object.keys(charState).some((islandName) => {
+    const islandChests = charState[islandName];
+    return islandChests && typeof islandChests === "object" && Object.keys(islandChests).length > 0;
+  });
+}
+
+function islandChestsConfirmBlock(characterId, onConfirm) {
+  const overlay = document.getElementById("ic-confirm-overlay");
+  if (!overlay) {
+    if (typeof onConfirm === "function") onConfirm();
+    return;
+  }
+  const yesBtn = document.getElementById("ic-confirm-yes");
+  if (!icConfirmBound) {
+    icConfirmBound = true;
+    const closeBtn = document.getElementById("ic-confirm-close");
+    if (yesBtn) yesBtn.onclick = islandChestsConfirmYes;
+    if (closeBtn) closeBtn.onclick = islandChestsConfirmClose;
+    overlay.onclick = (e) => {
+      if (e.target === overlay) islandChestsConfirmClose();
+    };
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && overlay && !overlay.hidden) islandChestsConfirmClose();
+    });
+  }
+  icConfirmCallback = typeof onConfirm === "function" ? onConfirm : null;
+  icConfirmCharacterId = characterId;
+  const character = Array.isArray(CHARACTERS_DATA)
+    ? CHARACTERS_DATA.find((entry) => entry.id === characterId)
+    : null;
+  const nameEl = document.getElementById("ic-confirm-char-name");
+  if (nameEl) nameEl.textContent = character ? character.name : (characterId || "");
+  overlay.hidden = false;
+  overlay.setAttribute("aria-hidden", "false");
+  if (yesBtn) yesBtn.focus();
+}
+
+function islandChestsConfirmClose() {
+  const overlay = document.getElementById("ic-confirm-overlay");
+  if (overlay) {
+    overlay.hidden = true;
+    overlay.setAttribute("aria-hidden", "true");
+  }
+  icConfirmCallback = null;
+  icConfirmCharacterId = null;
+}
+
+function islandChestsConfirmYes() {
+  const callback = icConfirmCallback;
+  islandChestsConfirmClose();
+  if (typeof callback === "function") callback();
 }
 
 // ---- Share/Load state functions ----

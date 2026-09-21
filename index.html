@@ -1688,6 +1688,19 @@
         </div>
       </div>
 
+      <div id="ic-confirm-overlay" class="ic-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="ic-confirm-title" hidden>
+        <div class="ic-confirm-modal">
+          <img class="ic-confirm-brand" src="sprites/branding/pop_up.png" alt="" aria-hidden="true" />
+          <h4 id="ic-confirm-title" class="ic-confirm-title" data-lang="charactersConfirmBlockTitle">Bloquear personagem</h4>
+          <strong id="ic-confirm-char-name" class="ic-confirm-char-name"></strong>
+          <p class="ic-confirm-text" data-lang="charactersConfirmBlockBody">Este personagem possui marcações de baús da ilha. Deseja realmente bloquear? Os dados serão mantidos.</p>
+          <div class="ic-confirm-actions">
+            <button id="ic-confirm-yes" type="button" class="ic-confirm-btn ic-confirm-btn-danger" data-lang="charactersConfirmBlockYes">Bloquear</button>
+            <button id="ic-confirm-close" type="button" class="ic-confirm-btn" data-lang="charactersConfirmBlockNo">Cancelar</button>
+          </div>
+        </div>
+      </div>
+
       <div id="toast" class="toast" aria-live="polite" aria-atomic="true"></div>
 
       <div id="update-warning-overlay" class="update-warning-overlay" role="dialog" aria-modal="true" aria-labelledby="update-warning-title" hidden>

@@ -653,6 +653,19 @@ function bindCharacterCardEvents() {
       const characterId = button.getAttribute("data-character-toggle");
       const state = characterCollectionState[characterId];
       if (!state) return;
+      if (state.active
+          && typeof islandChestsHasCharacterData === "function"
+          && islandChestsHasCharacterData(characterId)) {
+        if (typeof islandChestsConfirmBlock === "function") {
+          islandChestsConfirmBlock(characterId, () => {
+            state.active = false;
+            autoSaveBuild();
+            notifyIslandChestsCharacterChange();
+            charactersRender();
+          });
+        }
+        return;
+      }
       state.active = !state.active;
       autoSaveBuild();
       notifyIslandChestsCharacterChange();

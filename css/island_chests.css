@@ -941,3 +941,95 @@
     min-width: calc(100vw - 28px);
   }
 }
+
+/* ---- Block confirmation modal ---- */
+.ic-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  z-index: 2100;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.ic-confirm-overlay[hidden] {
+  display: none;
+}
+
+.ic-confirm-overlay:not([hidden]) {
+  display: flex;
+}
+
+.ic-confirm-modal {
+  position: relative;
+  background: var(--bg-panel);
+  border: 2px solid var(--border-accent);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 440px;
+  margin-top: 36px;
+  padding: 8px 20px 22px;
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7);
+  animation: profileModalIn 0.2s ease forwards;
+}
+
+.ic-confirm-brand {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  display: block;
+  margin: -44px auto 6px;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
+}
+
+.ic-confirm-title {
+  margin: 0 0 4px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-title);
+}
+
+.ic-confirm-char-name {
+  display: block;
+  font-size: 1rem;
+  color: var(--text-main);
+  margin-bottom: 10px;
+}
+
+.ic-confirm-text {
+  margin: 0 0 18px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.ic-confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.ic-confirm-btn {
+  min-width: 110px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--border-accent);
+  background: var(--bg-surface-1);
+  color: var(--text-main);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: filter 0.15s ease;
+}
+
+.ic-confirm-btn:hover {
+  filter: brightness(1.15);
+}
+
+.ic-confirm-btn-danger {
+  background: #b3402f;
+  border-color: #d35641;
+  color: #fff;
+}
