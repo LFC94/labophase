@@ -471,7 +471,8 @@
   width: 100%;
 }
 
-.wc-edit-line-date .wc-edit-date {
+.wc-edit-line-date .wc-edit-date,
+.wc-edit-line-date .wc-edit-date-btn {
   width: 100%;
 }
 
@@ -497,6 +498,131 @@
   border-radius: 4px;
   color: var(--input-text);
   outline: none;
+}
+
+.wc-edit-date-btn {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  font-size: 10px;
+  text-align: left;
+  padding: 2px 5px;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  color: var(--input-text);
+  cursor: pointer;
+  outline: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wc-edit-date-btn:hover,
+.wc-edit-date-btn:focus-visible {
+  border-color: var(--input-focus);
+}
+
+/* ------------------------------------------------------------
+   Thursday-only calendar popup
+   ------------------------------------------------------------ */
+
+.wc-cal-popup {
+  position: fixed;
+  z-index: 3000;
+  width: 210px;
+  padding: 8px;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-accent);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  user-select: none;
+}
+
+.wc-cal-popup[hidden] {
+  display: none;
+}
+
+.wc-cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.wc-cal-title {
+  flex: 1;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-title);
+  text-transform: capitalize;
+}
+
+.wc-cal-nav {
+  width: 22px;
+  height: 22px;
+  line-height: 1;
+  font-size: 14px;
+  border: 1px solid var(--border-accent);
+  border-radius: 4px;
+  background: var(--input-bg);
+  color: var(--text-title);
+  cursor: pointer;
+  padding: 0;
+}
+
+.wc-cal-nav:hover {
+  border-color: var(--input-focus);
+}
+
+.wc-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.wc-cal-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  font-size: 11px;
+  border-radius: 4px;
+  color: var(--input-text);
+}
+
+.wc-cal-cell.is-empty {
+  visibility: hidden;
+}
+
+.wc-cal-cell.is-disabled {
+  color: var(--text-muted);
+  opacity: 0.28;
+  cursor: default;
+}
+
+.wc-cal-cell:not(.is-disabled):not(.is-empty) {
+  cursor: pointer;
+  color: var(--text-title);
+  font-weight: 600;
+  background: var(--input-bg);
+}
+
+.wc-cal-cell:not(.is-disabled):not(.is-empty):hover {
+  outline: 1px solid var(--input-focus);
+  outline-offset: -1px;
+}
+
+.wc-cal-cell.is-today {
+  outline: 1px dashed var(--input-focus);
+  outline-offset: -2px;
+}
+
+.wc-cal-cell.is-selected {
+  background: var(--input-focus);
+  color: var(--bg-surface-2);
 }
 
 .wc-edit-norot {

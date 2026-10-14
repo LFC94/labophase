@@ -308,6 +308,179 @@ function wcFromInputDate(iso) {
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
+// ------------------------------------------------------------
+// Thursday-only calendar (rotations only ever happen on Thursdays).
+// The native <input type="date"> shows every day, so edit mode uses a
+// custom popup where only Thursdays are selectable.
+// ------------------------------------------------------------
+
+const WC_LOCALE_MAP = { pt: "pt-BR", en: "en-US", es: "es-ES", pl: "pl-PL" };
+let WC_CAL_KEY = null;   // character key currently being edited
+let WC_CAL_VIEW = null;  // first day of the displayed month
+let WC_CAL_EL = null;    // shared popup element
+let _wcCalOutside = null;
+
+function wcLocale() {
+  return WC_LOCALE_MAP[typeof currentLang === "string" ? currentLang : "en"] || "en-US";
+}
+
+function wcIsThursday(date) {
+  return date instanceof Date && !isNaN(date.getTime()) && date.getDay() === 4;
+}
+
+function wcThursdaysInMonth(year, month) {
+  const days = [];
+  const d = new Date(year, month, 1);
+  while (d.getMonth() === month) {
+    if (d.getDay() === 4) days.push(new Date(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return days;
+}
+
+function wcPad2(n) {
+  return String(n).padStart(2, "0");
+}
+
+function wcDateToStr(date) {
+  return `${wcPad2(date.getDate())}/${wcPad2(date.getMonth() + 1)}/${date.getFullYear()}`;
+}
+
+function wcBuildCalendarPopup() {
+  if (WC_CAL_EL) return WC_CAL_EL;
+  const el = document.createElement("div");
+  el.className = "wc-cal-popup";
+  el.hidden = true;
+  el.innerHTML =
+    `<div class="wc-cal-head">` +
+      `<button type="button" class="wc-cal-nav" data-wc-cal-nav="-1" aria-label="${t("wcCalendarPrev")}" title="${t("wcCalendarPrev")}">&#8249;</button>` +
+      `<span class="wc-cal-title"></span>` +
+      `<button type="button" class="wc-cal-nav" data-wc-cal-nav="1" aria-label="${t("wcCalendarNext")}" title="${t("wcCalendarNext")}">&#8250;</button>` +
+    `</div>` +
+    `<div class="wc-cal-grid"></div>`;
+
+  el.addEventListener("click", (event) => {
+    const nav = event.target.closest("[data-wc-cal-nav]");
+    if (nav) {
+      wcNavCalendar(parseInt(nav.getAttribute("data-wc-cal-nav"), 10));
+      return;
+    }
+    const cell = event.target.closest(".wc-cal-cell[data-wc-date]");
+    if (cell) {
+      const key = WC_CAL_KEY;
+      const ds = cell.getAttribute("data-wc-date");
+      if (key && ds) wcSetOverride(key, ds);
+      wcCloseCalendar();
+    }
+  });
+
+  document.body.appendChild(el);
+  WC_CAL_EL = el;
+  return el;
+}
+
+function wcRenderCalendar() {
+  const el = wcBuildCalendarPopup();
+  const view = WC_CAL_VIEW || new Date();
+  const year = view.getFullYear();
+  const month = view.getMonth();
+
+  const prev = el.querySelector('[data-wc-cal-nav="-1"]');
+  const next = el.querySelector('[data-wc-cal-nav="1"]');
+  if (prev) { prev.setAttribute("aria-label", t("wcCalendarPrev")); prev.setAttribute("title", t("wcCalendarPrev")); }
+  if (next) { next.setAttribute("aria-label", t("wcCalendarNext")); next.setAttribute("title", t("wcCalendarNext")); }
+
+  el.querySelector(".wc-cal-title").textContent =
+    new Intl.DateTimeFormat(wcLocale(), { month: "long", year: "numeric" }).format(new Date(year, month, 1));
+
+  const selected = WC_CAL_KEY ? wcGetRotationData()[WC_CAL_KEY] : "";
+  const todayStr = wcDateToStr(new Date());
+
+  const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  let html = "";
+  for (let i = 0; i < firstDay; i++) html += `<span class="wc-cal-cell is-empty"></span>`;
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(year, month, day);
+    const thursday = d.getDay() === 4;
+    const ds = wcDateToStr(d);
+    const cls = ["wc-cal-cell"];
+    if (!thursday) cls.push("is-disabled");
+    if (ds === selected) cls.push("is-selected");
+    if (ds === todayStr) cls.push("is-today");
+    const attrs = thursday
+      ? ` data-wc-date="${ds}" role="button" tabindex="0" title="${ds}"`
+      : ` aria-disabled="true"`;
+    html += `<span class="${cls.join(" ")}"${attrs}>${day}</span>`;
+  }
+  el.querySelector(".wc-cal-grid").innerHTML = html;
+}
+
+function wcPositionCalendar(anchorEl) {
+  const el = WC_CAL_EL;
+  if (!el || !anchorEl) return;
+  const margin = 6;
+  const rect = anchorEl.getBoundingClientRect();
+  const pop = el.getBoundingClientRect();
+  let top = rect.bottom + margin;
+  if (top + pop.height > window.innerHeight - margin && rect.top - margin - pop.height > 0) {
+    top = rect.top - margin - pop.height;
+  }
+  let left = rect.left;
+  if (left + pop.width > window.innerWidth - margin) left = window.innerWidth - margin - pop.width;
+  if (left < margin) left = margin;
+  el.style.top = Math.max(margin, top) + "px";
+  el.style.left = left + "px";
+}
+
+function wcNavCalendar(delta) {
+  if (!WC_CAL_VIEW) WC_CAL_VIEW = new Date();
+  WC_CAL_VIEW = new Date(WC_CAL_VIEW.getFullYear(), WC_CAL_VIEW.getMonth() + delta, 1);
+  wcRenderCalendar();
+}
+
+function wcOpenCalendar(key, anchorEl, dateStr) {
+  WC_CAL_KEY = key;
+  const base = (dateStr && dateStr !== "no_rotation") ? wcParseDate(dateStr) : new Date();
+  WC_CAL_VIEW = new Date(base.getFullYear(), base.getMonth(), 1);
+  const el = wcBuildCalendarPopup();
+  wcRenderCalendar();
+  el.hidden = false;
+  wcPositionCalendar(anchorEl);
+  wcBindCalendarOutside();
+}
+
+function wcCloseCalendar() {
+  if (WC_CAL_EL) WC_CAL_EL.hidden = true;
+  WC_CAL_KEY = null;
+  wcUnbindCalendarOutside();
+}
+
+function wcCalKeyHandler(event) {
+  if (event.key === "Escape" && WC_CAL_EL && !WC_CAL_EL.hidden) wcCloseCalendar();
+}
+
+function wcBindCalendarOutside() {
+  if (_wcCalOutside) return;
+  _wcCalOutside = (event) => {
+    if (!WC_CAL_EL || WC_CAL_EL.hidden) return;
+    const tgt = event.target;
+    if (tgt && tgt.closest && (tgt.closest(".wc-cal-popup") || tgt.closest(".wc-edit-date-btn"))) return;
+    wcCloseCalendar();
+  };
+  document.addEventListener("mousedown", _wcCalOutside, true);
+  document.addEventListener("keydown", wcCalKeyHandler, true);
+}
+
+function wcUnbindCalendarOutside() {
+  if (_wcCalOutside) {
+    document.removeEventListener("mousedown", _wcCalOutside, true);
+    _wcCalOutside = null;
+  }
+  document.removeEventListener("keydown", wcCalKeyHandler, true);
+}
+
 function wcGetStatus(key, dateStr) {
   if (WC_CURRENT_SET.has(key)) return "current";
   if (!dateStr || dateStr === "no_rotation") return "no_rotation";
@@ -416,7 +589,7 @@ function wcBuildCard(key, dateStr) {
         (isNoRotation
           ? ""
           : `<div class="wc-edit-line wc-edit-line-date">` +
-              `<input type="date" class="wc-edit-date" data-wc-key="${key}" value="${inputDate}" aria-label="Date" />` +
+              `<button type="button" class="wc-edit-date-btn" data-wc-key="${key}" data-wc-date="${inputDate}" title="${t("wcCalendarSelectDate")}">${inputDate ? dateStr : t("wcCalendarSelectDate")}</button>` +
             `</div>`) +
       `</div>`;
   }
@@ -453,6 +626,7 @@ function wcBuildCharCache() {
 }
 
 function wcRender() {
+  wcCloseCalendar();
   const container = document.getElementById("wc-grid");
   if (!container) return;
   if (!WC_CHAR_CACHE) wcBuildCharCache();
@@ -563,14 +737,6 @@ function wcBindEditDelegates() {
       wcSetChestOverride(key, Number.isFinite(num) ? num : null);
       return;
     }
-    if (target.classList && target.classList.contains("wc-edit-date")) {
-      const key = target.getAttribute("data-wc-key");
-      if (!key) return;
-      const iso = target.value;
-      const next = iso ? wcFromInputDate(iso) : "no_rotation";
-      wcSetOverride(key, next);
-      return;
-    }
     if (target.classList && target.classList.contains("wc-edit-norot-cb")) {
       const key = target.getAttribute("data-wc-key");
       if (!key) return;
@@ -580,6 +746,13 @@ function wcBindEditDelegates() {
 
   grid.addEventListener("click", (event) => {
     const target = event.target;
+    if (target.closest && target.closest(".wc-edit-date-btn")) {
+      const btn = target.closest(".wc-edit-date-btn");
+      const key = btn.getAttribute("data-wc-key");
+      if (!key) return;
+      wcOpenCalendar(key, btn, wcGetRotationData()[key]);
+      return;
+    }
     if (target.closest && target.closest(".wc-edit-revert")) {
       const key = target.closest(".wc-edit-revert").getAttribute("data-wc-key");
       if (!key) return;
